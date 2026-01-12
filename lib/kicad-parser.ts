@@ -98,7 +98,9 @@ export function parseEasyEDAFootprint(dataStr: string | any): ParsedFootprint {
             footprint.pads.push(parsePad(parts));
             break;
           case 'TRACK':
-            footprint.lines.push(parseTrack(parts));
+            // TRACK can have multiple points, create line segments
+            const trackLines = parseTrack(parts);
+            footprint.lines.push(...trackLines);
             break;
           case 'CIRCLE':
             footprint.circles.push(parseCircle(parts));
@@ -153,33 +155,44 @@ function parsePad(parts: string[]) {
 }
 
 function parseTrack(parts: string[]) {
-  // EasyEDA TRACK format: TRACK~width~layer~~x1 y1 x2 y2~id~...
-  // Use original coordinates, viewBox will handle scaling
+  // EasyEDA TRACK format: TRACK~width~layer~~x1 y1 x2 y2 ...~id~...
+  // TRACK can be a polyline with multiple points
   const width = safeParseFloat(parts[1]);
   const layer = parts[2] || '1';
 
   // Coordinates are in parts[4] as space-separated values
   const coords = (parts[4] || '').trim().split(/\s+/);
-  if (coords.length >= 4) {
-    return {
-      x1: safeParseFloat(coords[0]),
-      y1: safeParseFloat(coords[1]),
-      x2: safeParseFloat(coords[2]),
-      y2: safeParseFloat(coords[3]),
-      width,
-      layer,
-    };
+  const lines = [];
+
+  // Create line segments from consecutive points
+  // Each pair of (x, y) coordinates represents a point
+  for (let i = 0; i < coords.length - 2; i += 2) {
+    const x1 = safeParseFloat(coords[i]);
+    const y1 = safeParseFloat(coords[i + 1]);
+    const x2 = safeParseFloat(coords[i + 2]);
+    const y2 = safeParseFloat(coords[i + 3]);
+
+    if (!isNaN(x1) && !isNaN(y1) && !isNaN(x2) && !isNaN(y2)) {
+      lines.push({
+        x1,
+        y1,
+        x2,
+        y2,
+        width,
+        layer,
+      });
+    }
   }
 
-  // Fallback for old format
-  return {
+  // If no valid lines were created, return empty array
+  return lines.length > 0 ? lines : [{
     x1: 0,
     y1: 0,
     x2: 0,
     y2: 0,
     width,
     layer,
-  };
+  }];
 }
 
 function parseCircle(parts: string[]) {
