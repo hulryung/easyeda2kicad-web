@@ -13,8 +13,65 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "EasyEDA to KiCad Web - Component Viewer",
-  description: "Convert EasyEDA/LCSC components to KiCad format. View footprints in 2D and 3D models online.",
+  title: "EasyEDA to KiCad Web - Component Viewer & Converter",
+  description: "Convert EasyEDA/LCSC components to KiCad format online. View schematic symbols, PCB footprints in 2D, and 3D models. Download .kicad_sym, .kicad_mod, OBJ, and STEP files.",
+  keywords: [
+    "EasyEDA",
+    "KiCad",
+    "LCSC",
+    "PCB",
+    "footprint viewer",
+    "schematic symbol",
+    "3D model viewer",
+    "component converter",
+    "electronics",
+    "PCB design",
+    "kicad_sym",
+    "kicad_mod",
+    "STEP",
+    "OBJ",
+    "electronic components",
+  ],
+  authors: [{ name: "hulryung", url: "https://github.com/hulryung" }],
+  creator: "hulryung",
+  publisher: "hulryung",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://easyeda2kicad-web.vercel.app",
+    title: "EasyEDA to KiCad Web - Component Viewer & Converter",
+    description: "Convert EasyEDA/LCSC components to KiCad format online. View schematic symbols, PCB footprints, and 3D models.",
+    siteName: "EasyEDA to KiCad Web",
+    images: [
+      {
+        url: "https://easyeda2kicad-web.vercel.app/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "EasyEDA to KiCad Web Converter",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "EasyEDA to KiCad Web - Component Viewer & Converter",
+    description: "Convert EasyEDA/LCSC components to KiCad format online. View schematic symbols, PCB footprints, and 3D models.",
+    creator: "@hulryung",
+    images: ["https://easyeda2kicad-web.vercel.app/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  verification: {
+    google: "google-site-verification-code",
+  },
 };
 
 export default function RootLayout({
@@ -22,8 +79,43 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: 'EasyEDA to KiCad Web',
+    description: 'Convert EasyEDA/LCSC components to KiCad format online. View schematic symbols, PCB footprints, and 3D models.',
+    url: 'https://easyeda2kicad-web.vercel.app',
+    applicationCategory: 'DeveloperApplication',
+    operatingSystem: 'Any',
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+    },
+    creator: {
+      '@type': 'Person',
+      name: 'hulryung',
+      url: 'https://github.com/hulryung',
+    },
+    featureList: [
+      'Component Search by LCSC ID',
+      'Schematic Symbol Viewer',
+      '2D Footprint Viewer',
+      '3D Model Viewer',
+      'KiCad Export (.kicad_sym, .kicad_mod)',
+      '3D Model Export (OBJ, STEP)',
+      'Batch ZIP Download',
+    ],
+  };
+
   return (
     <html lang="en">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
       >
