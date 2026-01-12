@@ -167,40 +167,40 @@ export default function Model3DViewer({ modelUrl }: Model3DViewerProps) {
           <Suspense fallback={<LoadingFallback />}>
             <Stage environment="city" intensity={0.6}>
               <Model objData={objData} />
+
+              {/* Coordinate axes - inside Stage to match model orientation */}
+              <axesHelper args={[3]} />
+
+              {/* Axis labels */}
+              <Text
+                position={[5, 0, 0]}
+                color="red"
+                fontSize={0.6}
+                anchorX="center"
+                anchorY="middle"
+              >
+                X
+              </Text>
+              <Text
+                position={[0, 5, 0]}
+                color="green"
+                fontSize={0.6}
+                anchorX="center"
+                anchorY="middle"
+              >
+                Y
+              </Text>
+              <Text
+                position={[0, 0, 5]}
+                color="blue"
+                fontSize={0.6}
+                anchorX="center"
+                anchorY="middle"
+              >
+                Z
+              </Text>
             </Stage>
           </Suspense>
-
-          {/* Coordinate axes */}
-          <axesHelper args={[3]} />
-
-          {/* Axis labels */}
-          <Text
-            position={[5, 0, 0]}
-            color="red"
-            fontSize={0.6}
-            anchorX="center"
-            anchorY="middle"
-          >
-            X
-          </Text>
-          <Text
-            position={[0, 5, 0]}
-            color="green"
-            fontSize={0.6}
-            anchorX="center"
-            anchorY="middle"
-          >
-            Y
-          </Text>
-          <Text
-            position={[0, 0, 5]}
-            color="blue"
-            fontSize={0.6}
-            anchorX="center"
-            anchorY="middle"
-          >
-            Z
-          </Text>
 
           <Grid
             args={[20, 20]}
