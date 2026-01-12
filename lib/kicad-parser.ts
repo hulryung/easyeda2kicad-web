@@ -70,6 +70,14 @@ export function parseEasyEDAFootprint(dataStr: string | any): ParsedFootprint {
       footprint.name = data.head.c_para.package;
     }
 
+    // Extract origin from head (used by easyeda2kicad.py for coordinate normalization)
+    if (data.head?.x !== undefined) {
+      footprint.originX = parseFloat(data.head.x);
+    }
+    if (data.head?.y !== undefined) {
+      footprint.originY = parseFloat(data.head.y);
+    }
+
     if (data.shape && Array.isArray(data.shape)) {
       for (const shape of data.shape) {
         // When shape is a string (e.g., "PAD~RECT~...")
@@ -347,13 +355,13 @@ export function convertToKiCadSymbol(schematic: any): string {
   return lines.join('\n');
 }
 
-export function convertToKiCadFootprint(footprint: ParsedFootprint): string {
+export function convertToKiCadFootprint(footprint: ParsedFootprint, originX?: number, originY?: number): string {
   const lines: string[] = [];
 
   // Sanitize footprint name for filename
   const footprintName = footprint.name.replace(/[^a-zA-Z0-9_-]/g, '_') || 'Footprint';
 
-  // Calculate bounding box for coordinate normalization
+  // Calculate bounding box for reference text positioning
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
   footprint.pads.forEach(pad => {
@@ -389,9 +397,10 @@ export function convertToKiCadFootprint(footprint: ParsedFootprint): string {
   if (maxX === -Infinity) maxX = 0;
   if (maxY === -Infinity) maxY = 0;
 
-  // Calculate center for normalization (to center footprint at origin)
-  const centerX = (minX + maxX) / 2;
-  const centerY = (minY + maxY) / 2;
+  // Use provided origin (from footprint head x,y) or fallback to calculated minX/minY
+  // easyeda2kicad.py uses ee_data_str["head"]["x"] and ["y"] as the origin
+  const normOriginX = originX !== undefined ? originX : minX;
+  const normOriginY = originY !== undefined ? originY : minY;
 
   // Calculate bbox dimensions in mm for reference text positioning
   const bboxHeight = convertToKiCadMm(maxY - minY);
@@ -417,10 +426,10 @@ export function convertToKiCadFootprint(footprint: ParsedFootprint): string {
 
   // Add lines (silkscreen/fab)
   footprint.lines.forEach((line, i) => {
-    const x1 = convertToKiCadMm(line.x1 - centerX);
-    const y1 = convertToKiCadMm(line.y1 - centerY);
-    const x2 = convertToKiCadMm(line.x2 - centerX);
-    const y2 = convertToKiCadMm(line.y2 - centerY);
+    const x1 = convertToKiCadMm(line.x1 - normOriginX);
+    const y1 = convertToKiCadMm(line.y1 - normOriginY);
+    const x2 = convertToKiCadMm(line.x2 - normOriginX);
+    const y2 = convertToKiCadMm(line.y2 - normOriginY);
     const width = convertToKiCadMm(line.width);
     const layer = convertLayer(line.layer);
 
@@ -429,8 +438,8 @@ export function convertToKiCadFootprint(footprint: ParsedFootprint): string {
 
   // Add circles
   footprint.circles.forEach((circle, i) => {
-    const cx = convertToKiCadMm(circle.x - centerX);
-    const cy = convertToKiCadMm(circle.y - centerY);
+    const cx = convertToKiCadMm(circle.x - normOriginX);
+    const cy = convertToKiCadMm(circle.y - normOriginY);
     const r = convertToKiCadMm(circle.radius);
     const width = convertToKiCadMm(circle.width);
     const layer = convertLayer(circle.layer);
@@ -440,10 +449,10 @@ export function convertToKiCadFootprint(footprint: ParsedFootprint): string {
 
   // Add arcs
   footprint.arcs.forEach((arc, i) => {
-    const cx = convertToKiCadMm(arc.x - centerX);
-    const cy = convertToKiCadMm(arc.y - centerY);
-    const startX = convertToKiCadMm(arc.startX - centerX);
-    const startY = convertToKiCadMm(arc.startY - centerY);
+    const cx = convertToKiCadMm(arc.x - normOriginX);
+    const cy = convertToKiCadMm(arc.y - normOriginY);
+    const startX = convertToKiCadMm(arc.startX - normOriginX);
+    const startY = convertToKiCadMm(arc.startY - normOriginY);
     const width = convertToKiCadMm(arc.width);
     const layer = convertLayer(arc.layer);
 
@@ -451,16 +460,16 @@ export function convertToKiCadFootprint(footprint: ParsedFootprint): string {
     const radius = Math.sqrt(Math.pow(arc.startX - arc.x, 2) + Math.pow(arc.startY - arc.y, 2));
     const startAngle = Math.atan2(arc.startY - arc.y, arc.startX - arc.x);
     const endAngle = startAngle + (arc.angle * Math.PI / 180);
-    const endX = convertToKiCadMm((arc.x - centerX) + radius * Math.cos(endAngle));
-    const endY = convertToKiCadMm((arc.y - centerY) + radius * Math.sin(endAngle));
+    const endX = convertToKiCadMm((arc.x - normOriginX) + radius * Math.cos(endAngle));
+    const endY = convertToKiCadMm((arc.y - normOriginY) + radius * Math.sin(endAngle));
 
     lines.push(`  (fp_arc (start ${startX.toFixed(4)} ${startY.toFixed(4)}) (mid ${cx.toFixed(4)} ${cy.toFixed(4)}) (end ${endX.toFixed(4)} ${endY.toFixed(4)}) (layer "${layer}") (width ${width.toFixed(4)}))`);
   });
 
   // Add pads
   footprint.pads.forEach((pad, i) => {
-    const x = convertToKiCadMm(pad.x - centerX);
-    const y = convertToKiCadMm(pad.y - centerY);
+    const x = convertToKiCadMm(pad.x - normOriginX);
+    const y = convertToKiCadMm(pad.y - normOriginY);
     const width = convertToKiCadMm(pad.width);
     const height = convertToKiCadMm(pad.height);
 
@@ -484,8 +493,8 @@ export function convertToKiCadFootprint(footprint: ParsedFootprint): string {
 
   // Add custom texts
   footprint.texts.forEach((text, i) => {
-    const x = convertToKiCadMm(text.x - centerX);
-    const y = convertToKiCadMm(text.y - centerY);
+    const x = convertToKiCadMm(text.x - normOriginX);
+    const y = convertToKiCadMm(text.y - normOriginY);
     const size = convertToKiCadMm(text.size);
     const layer = convertLayer(text.layer);
 

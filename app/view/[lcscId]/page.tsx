@@ -103,7 +103,7 @@ export default function ViewPage() {
 
       // Add footprint file
       if (footprint) {
-        const kicadFootprint = convertToKiCadFootprint(footprint);
+        const kicadFootprint = convertToKiCadFootprint(footprint, footprint.originX, footprint.originY);
         const footprintPackage = footprint.name?.replace(/[^a-zA-Z0-9_-]/g, '_') || '';
         const footprintName = footprintPackage ? `${footprintPackage}_${componentTitle}_${lcscId}` : `${componentTitle}_${lcscId}`;
         zip.file(`${footprintName}.kicad_mod`, kicadFootprint);
@@ -176,7 +176,7 @@ export default function ViewPage() {
         URL.revokeObjectURL(url);
       } else if (type === 'footprint' && footprint) {
         // Convert to KiCad footprint format
-        const kicadContent = convertToKiCadFootprint(footprint);
+        const kicadContent = convertToKiCadFootprint(footprint, footprint.originX, footprint.originY);
         const blob = new Blob([kicadContent], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');

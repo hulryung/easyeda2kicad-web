@@ -29,6 +29,8 @@ export interface ComponentResponse {
 
 export interface ParsedFootprint {
   name: string;
+  originX?: number;
+  originY?: number;
   pads: Array<{
     number: string;
     type: string;
