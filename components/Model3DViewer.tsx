@@ -1,7 +1,7 @@
 'use client';
 
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Stage, Grid } from '@react-three/drei';
+import { OrbitControls, Stage, Grid, Text } from '@react-three/drei';
 import { Suspense, useEffect, useState, useRef } from 'react';
 import * as THREE from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
@@ -172,6 +172,35 @@ export default function Model3DViewer({ modelUrl }: Model3DViewerProps) {
 
           {/* Coordinate axes */}
           <axesHelper args={[3]} />
+
+          {/* Axis labels */}
+          <Text
+            position={[3.5, 0, 0]}
+            color="red"
+            fontSize={0.5}
+            anchorX="center"
+            anchorY="middle"
+          >
+            X
+          </Text>
+          <Text
+            position={[0, 3.5, 0]}
+            color="green"
+            fontSize={0.5}
+            anchorX="center"
+            anchorY="middle"
+          >
+            Y
+          </Text>
+          <Text
+            position={[0, 0, 3.5]}
+            color="blue"
+            fontSize={0.5}
+            anchorX="center"
+            anchorY="middle"
+          >
+            Z
+          </Text>
 
           <Grid
             args={[20, 20]}
