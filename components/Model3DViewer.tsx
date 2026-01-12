@@ -1,7 +1,7 @@
 'use client';
 
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Stage, Grid, Text } from '@react-three/drei';
+import { OrbitControls, Stage, Grid, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import { Suspense, useEffect, useState, useRef } from 'react';
 import * as THREE from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
@@ -167,40 +167,17 @@ export default function Model3DViewer({ modelUrl }: Model3DViewerProps) {
           <Suspense fallback={<LoadingFallback />}>
             <Stage environment="city" intensity={0.6}>
               <Model objData={objData} />
-
-              {/* Coordinate axes - inside Stage to match model orientation */}
-              <axesHelper args={[3]} />
-
-              {/* Axis labels */}
-              <Text
-                position={[5, 0, 0]}
-                color="red"
-                fontSize={0.6}
-                anchorX="center"
-                anchorY="middle"
-              >
-                X
-              </Text>
-              <Text
-                position={[0, 5, 0]}
-                color="green"
-                fontSize={0.6}
-                anchorX="center"
-                anchorY="middle"
-              >
-                Y
-              </Text>
-              <Text
-                position={[0, 0, 5]}
-                color="blue"
-                fontSize={0.6}
-                anchorX="center"
-                anchorY="middle"
-              >
-                Z
-              </Text>
             </Stage>
           </Suspense>
+
+          {/* Coordinate axes gizmo - fixed position on screen */}
+          <GizmoHelper alignment="bottom-left" margin={[80, 80]}>
+            <GizmoViewport
+              axisColors={['red', 'green', 'blue']}
+              labelColor="white"
+              labels={['X', 'Y', 'Z']}
+            />
+          </GizmoHelper>
 
           <Grid
             args={[20, 20]}
