@@ -235,6 +235,17 @@ export default function FootprintViewer({ footprint }: FootprintViewerProps) {
               const color = pad.type === 'smd' ? '#fbbf24' : '#ef4444';
               const rotation = pad.rotation || 0;
 
+              // Calculate corner radius for pads
+              // SMD pads typically have rounded corners (10-25% of width)
+              // Through-hole and oval pads have full radius
+              let cornerRadius = 0;
+              if (isCircle || pad.shape === 'oval') {
+                cornerRadius = pad.width / 2;
+              } else if (pad.type === 'smd' && pad.shape === 'rect') {
+                // SMD rectangular pads get rounded corners (20% of smaller dimension)
+                cornerRadius = Math.min(pad.width, pad.height) * 0.2;
+              }
+
               return (
                 <g key={`pad-${i}`} transform={`rotate(${rotation} ${pad.x} ${pad.y})`}>
                 {isCircle ? (
@@ -255,7 +266,8 @@ export default function FootprintViewer({ footprint }: FootprintViewerProps) {
                     fill={color}
                     stroke="#000"
                     strokeWidth={strokeWidth}
-                    rx={pad.shape === 'oval' ? pad.width / 2 : 0}
+                    rx={cornerRadius}
+                    ry={cornerRadius}
                   />
                 )}
                 {pad.drill && (
