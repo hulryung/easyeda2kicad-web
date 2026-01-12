@@ -163,6 +163,8 @@ export default function Model3DViewer({ modelUrl }: Model3DViewerProps) {
             makeDefault
             enableDamping
             dampingFactor={0.05}
+            autoRotate
+            autoRotateSpeed={2}
           />
         </Canvas>
       </div>
