@@ -229,6 +229,107 @@ function convertLayer(layerId: string): string {
   }
 }
 
+// Convert schematic symbol to KiCad symbol format
+export function convertToKiCadSymbol(schematic: any): string {
+  const lines: string[] = [];
+  const symbolName = schematic.name.replace(/[^a-zA-Z0-9_-]/g, '_') || 'Symbol';
+
+  lines.push('(kicad_symbol_lib (version 20211014) (generator easyeda2kicad)');
+  lines.push(`  (symbol "${symbolName}" (pin_names (offset 1.016)) (in_bom yes) (on_board yes)`);
+  lines.push('    (property "Reference" "U" (id 0) (at 0 0 0)');
+  lines.push('      (effects (font (size 1.27 1.27)))');
+  lines.push('    )');
+  lines.push(`    (property "Value" "${symbolName}" (id 1) (at 0 -2.54 0)`);
+  lines.push('      (effects (font (size 1.27 1.27)))');
+  lines.push('    )');
+  lines.push('    (property "Footprint" "" (id 2) (at 0 0 0)');
+  lines.push('      (effects (font (size 1.27 1.27)) hide)');
+  lines.push('    )');
+  lines.push('    (property "Datasheet" "" (id 3) (at 0 0 0)');
+  lines.push('      (effects (font (size 1.27 1.27)) hide)');
+  lines.push('    )');
+
+  // Symbol graphic items
+  lines.push('    (symbol "' + symbolName + '_0_1"');
+
+  // Convert polylines
+  schematic.polylines.forEach((polyline: any) => {
+    if (polyline.points.length >= 2) {
+      for (let i = 0; i < polyline.points.length - 1; i++) {
+        const x1 = convertToKiCadMm(polyline.points[i].x);
+        const y1 = -convertToKiCadMm(polyline.points[i].y); // Y is inverted in KiCad
+        const x2 = convertToKiCadMm(polyline.points[i + 1].x);
+        const y2 = -convertToKiCadMm(polyline.points[i + 1].y);
+        const width = convertToKiCadMm(polyline.strokeWidth);
+
+        lines.push(`      (polyline`);
+        lines.push(`        (pts`);
+        lines.push(`          (xy ${x1.toFixed(4)} ${y1.toFixed(4)})`);
+        lines.push(`          (xy ${x2.toFixed(4)} ${y2.toFixed(4)})`);
+        lines.push(`        )`);
+        lines.push(`        (stroke (width ${width.toFixed(4)}) (type default) (color 0 0 0 0))`);
+        lines.push(`        (fill (type none))`);
+        lines.push(`      )`);
+      }
+    }
+  });
+
+  // Convert rectangles
+  schematic.rectangles.forEach((rect: any) => {
+    const x1 = convertToKiCadMm(rect.x);
+    const y1 = -convertToKiCadMm(rect.y);
+    const x2 = convertToKiCadMm(rect.x + rect.width);
+    const y2 = -convertToKiCadMm(rect.y + rect.height);
+
+    lines.push(`      (rectangle (start ${x1.toFixed(4)} ${y1.toFixed(4)}) (end ${x2.toFixed(4)} ${y2.toFixed(4)})`);
+    lines.push(`        (stroke (width 0.254) (type default) (color 0 0 0 0))`);
+    lines.push(`        (fill (type none))`);
+    lines.push(`      )`);
+  });
+
+  // Convert circles
+  schematic.circles.forEach((circle: any) => {
+    const cx = convertToKiCadMm(circle.x);
+    const cy = -convertToKiCadMm(circle.y);
+    const r = convertToKiCadMm(circle.radius);
+
+    lines.push(`      (circle (center ${cx.toFixed(4)} ${cy.toFixed(4)}) (radius ${r.toFixed(4)})`);
+    lines.push(`        (stroke (width 0.254) (type default) (color 0 0 0 0))`);
+    lines.push(`        (fill (type none))`);
+    lines.push(`      )`);
+  });
+
+  lines.push('    )');
+
+  // Add pins
+  if (schematic.pins && schematic.pins.length > 0) {
+    lines.push('    (symbol "' + symbolName + '_1_1"');
+
+    schematic.pins.forEach((pin: any) => {
+      const x = convertToKiCadMm(pin.x);
+      const y = -convertToKiCadMm(pin.y);
+      const pinName = pin.name || pin.number;
+      const pinNumber = pin.number || '1';
+
+      // Determine pin orientation (assume left side for now)
+      const orientation = 'R'; // Right (pointing right from left side)
+      const length = 2.54;
+
+      lines.push(`      (pin passive line (at ${x.toFixed(4)} ${y.toFixed(4)} 0) (length ${length.toFixed(4)})`);
+      lines.push(`        (name "${pinName}" (effects (font (size 1.27 1.27))))`);
+      lines.push(`        (number "${pinNumber}" (effects (font (size 1.27 1.27))))`);
+      lines.push(`      )`);
+    });
+
+    lines.push('    )');
+  }
+
+  lines.push('  )');
+  lines.push(')');
+
+  return lines.join('\n');
+}
+
 export function convertToKiCadFootprint(footprint: ParsedFootprint): string {
   const lines: string[] = [];
 

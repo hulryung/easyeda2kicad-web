@@ -17,6 +17,26 @@ function Model({ objData }: { objData: string }) {
     if (!objData) return;
 
     const loader = new OBJLoader();
+
+    // Suppress OBJLoader warnings about material properties
+    const originalWarn = console.warn;
+    console.warn = (message: any, ...args: any[]) => {
+      if (
+        typeof message === 'string' &&
+        message.includes('THREE.OBJLoader: Unexpected line:') &&
+        (message.includes('"d ') ||
+         message.includes('"Ka ') ||
+         message.includes('"Kd ') ||
+         message.includes('"Ks ') ||
+         message.includes('"newmtl') ||
+         message.includes('"endmtl'))
+      ) {
+        // Suppress these specific warnings
+        return;
+      }
+      originalWarn(message, ...args);
+    };
+
     try {
       const loadedModel = loader.parse(objData);
 
@@ -37,6 +57,9 @@ function Model({ objData }: { objData: string }) {
       setModel(loadedModel);
     } catch (error) {
       console.error('Error parsing OBJ:', error);
+    } finally {
+      // Restore original console.warn
+      console.warn = originalWarn;
     }
   }, [objData]);
 

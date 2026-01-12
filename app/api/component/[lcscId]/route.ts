@@ -73,6 +73,9 @@ export async function GET(
 
     const result = data.result;
 
+    // Schematic symbol data is from the main dataStr
+    const schematicData = result.dataStr;
+
     // Footprint data is retrieved from packageDetail
     const footprintData = result.packageDetail?.dataStr;
 
@@ -85,7 +88,8 @@ export async function GET(
       data: {
         title: result.title,
         description: result.description,
-        dataStr: footprintData, // Returns dataStr from packageDetail
+        schematicStr: schematicData, // Schematic symbol data
+        footprintStr: footprintData, // Footprint data
         '3d_model': uuid_3d,
       },
     });

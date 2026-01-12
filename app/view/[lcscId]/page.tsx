@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import FootprintViewer from '@/components/FootprintViewer';
 import Model3DViewer from '@/components/Model3DViewer';
-import { parseEasyEDAFootprint, convertToKiCadFootprint } from '@/lib/kicad-parser';
+import SchematicViewer, { parseSchematicData } from '@/components/SchematicViewer';
+import { parseEasyEDAFootprint, convertToKiCadFootprint, convertToKiCadSymbol } from '@/lib/kicad-parser';
 import { ParsedFootprint } from '@/types/easyeda';
 import Link from 'next/link';
 
@@ -12,7 +13,8 @@ interface ComponentData {
   success: boolean;
   lcscId: string;
   data: {
-    dataStr?: string;
+    schematicStr?: string;
+    footprintStr?: string;
     title?: string;
     description?: string;
     '3d_model'?: string;
@@ -27,7 +29,8 @@ export default function ViewPage() {
   const [error, setError] = useState<string>('');
   const [componentData, setComponentData] = useState<ComponentData | null>(null);
   const [footprint, setFootprint] = useState<ParsedFootprint | null>(null);
-  const [activeTab, setActiveTab] = useState<'footprint' | '3d'>('footprint');
+  const [schematic, setSchematic] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'schematic' | 'footprint' | '3d'>('schematic');
 
   useEffect(() => {
     if (!lcscId) return;
@@ -43,9 +46,20 @@ export default function ViewPage() {
       .then((data: ComponentData) => {
         setComponentData(data);
 
-        if (data.data?.dataStr) {
+        // Parse schematic symbol data
+        if (data.data?.schematicStr) {
           try {
-            const parsed = parseEasyEDAFootprint(data.data.dataStr);
+            const parsedSchematic = parseSchematicData(data.data.schematicStr);
+            setSchematic(parsedSchematic);
+          } catch (err) {
+            console.error('Error parsing schematic:', err);
+          }
+        }
+
+        // Parse footprint data
+        if (data.data?.footprintStr) {
+          try {
+            const parsed = parseEasyEDAFootprint(data.data.footprintStr);
             setFootprint(parsed);
           } catch (err) {
             console.error('Error parsing footprint:', err);
@@ -61,11 +75,24 @@ export default function ViewPage() {
       });
   }, [lcscId]);
 
-  const handleDownload = async (type: 'footprint' | 'step' | 'obj') => {
+  const handleDownload = async (type: 'symbol' | 'footprint' | 'step' | 'obj') => {
     if (!componentData) return;
 
     try {
-      if (type === 'footprint' && footprint) {
+      if (type === 'symbol' && schematic) {
+        // Convert to KiCad symbol format
+        const kicadContent = convertToKiCadSymbol(schematic);
+        const blob = new Blob([kicadContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+
+        // Generate filename from symbol name or use LCSC ID
+        const symbolName = schematic.name.replace(/[^a-zA-Z0-9_-]/g, '_') || lcscId;
+        a.download = `${symbolName}.kicad_sym`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } else if (type === 'footprint' && footprint) {
         // Convert to KiCad footprint format
         const kicadContent = convertToKiCadFootprint(footprint);
         const blob = new Blob([kicadContent], { type: 'text/plain' });
@@ -162,6 +189,13 @@ export default function ViewPage() {
 
             <div className="flex gap-2">
               <button
+                onClick={() => handleDownload('symbol')}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                disabled={!schematic}
+              >
+                Download Symbol
+              </button>
+              <button
                 onClick={() => handleDownload('footprint')}
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
                 disabled={!footprint}
@@ -192,6 +226,16 @@ export default function ViewPage() {
           <div className="border-b border-gray-700">
             <div className="flex">
               <button
+                onClick={() => setActiveTab('schematic')}
+                className={`px-6 py-3 font-medium transition-colors ${
+                  activeTab === 'schematic'
+                    ? 'bg-gray-700 text-white border-b-2 border-blue-500'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-750'
+                }`}
+              >
+                Schematic Symbol
+              </button>
+              <button
                 onClick={() => setActiveTab('footprint')}
                 className={`px-6 py-3 font-medium transition-colors ${
                   activeTab === 'footprint'
@@ -217,9 +261,27 @@ export default function ViewPage() {
           </div>
 
           <div className="p-6">
+            {activeTab === 'schematic' && schematic && (
+              <div className="h-[700px]">
+                <SchematicViewer schematic={schematic} />
+              </div>
+            )}
+
+            {activeTab === 'schematic' && !schematic && (
+              <div className="h-[700px] flex items-center justify-center">
+                <p className="text-gray-500">No schematic data available</p>
+              </div>
+            )}
+
             {activeTab === 'footprint' && footprint && (
               <div className="h-[700px]">
                 <FootprintViewer footprint={footprint} />
+              </div>
+            )}
+
+            {activeTab === 'footprint' && !footprint && (
+              <div className="h-[700px] flex items-center justify-center">
+                <p className="text-gray-500">No footprint data available</p>
               </div>
             )}
 
@@ -228,12 +290,6 @@ export default function ViewPage() {
                 <Model3DViewer
                   modelUrl={`/api/3dmodel/${componentData.data['3d_model']}?format=obj`}
                 />
-              </div>
-            )}
-
-            {activeTab === 'footprint' && !footprint && (
-              <div className="h-[700px] flex items-center justify-center">
-                <p className="text-gray-500">No footprint data available</p>
               </div>
             )}
           </div>
