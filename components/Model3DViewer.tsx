@@ -2,9 +2,10 @@
 
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stage, Grid } from '@react-three/drei';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useRef } from 'react';
 import * as THREE from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
 interface Model3DViewerProps {
   modelUrl: string;
@@ -81,6 +82,7 @@ export default function Model3DViewer({ modelUrl }: Model3DViewerProps) {
   const [objData, setObjData] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  const controlsRef = useRef<OrbitControlsImpl>(null);
 
   useEffect(() => {
     if (!modelUrl) {
@@ -183,13 +185,15 @@ export default function Model3DViewer({ modelUrl }: Model3DViewerProps) {
           />
 
           <OrbitControls
+            ref={controlsRef}
             makeDefault
             enableDamping
             dampingFactor={0.05}
             autoRotate
             autoRotateSpeed={2}
-            minPolarAngle={-Infinity}
-            maxPolarAngle={Infinity}
+            enableRotate={true}
+            minPolarAngle={-Math.PI * 10}
+            maxPolarAngle={Math.PI * 10}
           />
         </Canvas>
       </div>
