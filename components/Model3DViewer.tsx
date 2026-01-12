@@ -148,7 +148,7 @@ export default function Model3DViewer({ modelUrl }: Model3DViewerProps) {
       </div>
       <div className="w-full h-[600px]">
         <Canvas
-          camera={{ position: [5, 5, 5], fov: 50 }}
+          camera={{ position: [5, -5, 5], fov: 50 }}
           gl={{ antialias: true }}
         >
           <color attach="background" args={['#1f2937']} />
