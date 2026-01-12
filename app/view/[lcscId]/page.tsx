@@ -31,7 +31,6 @@ export default function ViewPage() {
   const [componentData, setComponentData] = useState<ComponentData | null>(null);
   const [footprint, setFootprint] = useState<ParsedFootprint | null>(null);
   const [schematic, setSchematic] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'schematic' | 'footprint' | '3d'>('schematic');
 
   useEffect(() => {
     if (!lcscId) return;
@@ -206,8 +205,8 @@ export default function ViewPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-xl text-gray-300">Loading component {lcscId}...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-3"></div>
+          <p className="text-sm text-gray-300">Loading component {lcscId}...</p>
         </div>
       </div>
     );
@@ -217,12 +216,12 @@ export default function ViewPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
         <div className="text-center max-w-md">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-white mb-2">Error</h1>
-          <p className="text-gray-400 mb-6">{error}</p>
+          <div className="text-red-500 text-4xl mb-3">⚠️</div>
+          <h1 className="text-lg font-bold text-white mb-2">Error</h1>
+          <p className="text-sm text-gray-400 mb-4">{error}</p>
           <Link
             href="/"
-            className="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            className="inline-block px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
             Go Back Home
           </Link>
@@ -243,9 +242,9 @@ export default function ViewPage() {
         <div className="mb-8">
           <Link
             href="/"
-            className="inline-flex items-center text-blue-400 hover:text-blue-300 mb-4"
+            className="inline-flex items-center text-sm text-blue-400 hover:text-blue-300 mb-3"
           >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             Back to Search
@@ -253,33 +252,33 @@ export default function ViewPage() {
 
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2">
+              <h1 className="text-xl font-bold mb-1">
                 {componentData.data.title || `Component ${lcscId}`}
               </h1>
               {componentData.data.description && (
-                <p className="text-gray-400">{componentData.data.description}</p>
+                <p className="text-sm text-gray-400">{componentData.data.description}</p>
               )}
-              <p className="text-sm text-gray-500 mt-1">LCSC ID: {lcscId}</p>
+              <p className="text-xs text-gray-500 mt-1">LCSC ID: {lcscId}</p>
             </div>
 
             <div className="flex gap-2">
               <button
                 onClick={handleDownloadAll}
-                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors font-semibold"
+                className="px-3 py-1.5 text-sm bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors font-semibold"
                 disabled={!schematic && !footprint && !has3DModel}
               >
                 Download All (ZIP)
               </button>
               <button
                 onClick={() => handleDownload('symbol')}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                 disabled={!schematic}
               >
                 Download Symbol
               </button>
               <button
                 onClick={() => handleDownload('footprint')}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
                 disabled={!footprint}
               >
                 Download Footprint
@@ -288,13 +287,13 @@ export default function ViewPage() {
                 <>
                   <button
                     onClick={() => handleDownload('obj')}
-                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                    className="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
                   >
                     Download OBJ
                   </button>
                   <button
                     onClick={() => handleDownload('step')}
-                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                    className="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
                   >
                     Download STEP
                   </button>
@@ -304,77 +303,70 @@ export default function ViewPage() {
           </div>
         </div>
 
-        <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden">
-          <div className="border-b border-gray-700">
-            <div className="flex">
-              <button
-                onClick={() => setActiveTab('schematic')}
-                className={`px-6 py-3 font-medium transition-colors ${
-                  activeTab === 'schematic'
-                    ? 'bg-gray-700 text-white border-b-2 border-blue-500'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-750'
-                }`}
-              >
-                Schematic Symbol
-              </button>
-              <button
-                onClick={() => setActiveTab('footprint')}
-                className={`px-6 py-3 font-medium transition-colors ${
-                  activeTab === 'footprint'
-                    ? 'bg-gray-700 text-white border-b-2 border-blue-500'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-750'
-                }`}
-              >
-                Footprint (2D)
-              </button>
-              {has3DModel && (
-                <button
-                  onClick={() => setActiveTab('3d')}
-                  className={`px-6 py-3 font-medium transition-colors ${
-                    activeTab === '3d'
-                      ? 'bg-gray-700 text-white border-b-2 border-blue-500'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-750'
-                  }`}
-                >
-                  3D Model
-                </button>
+        {/* All three viewers side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Schematic Symbol */}
+          <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden">
+            <div className="border-b border-gray-700 px-4 py-2">
+              <h2 className="text-sm font-semibold text-white">Schematic Symbol</h2>
+            </div>
+            <div className="p-3">
+              {schematic ? (
+                <div className="h-[600px]">
+                  <SchematicViewer schematic={schematic} />
+                </div>
+              ) : (
+                <div className="h-[600px] flex items-center justify-center">
+                  <p className="text-gray-500 text-sm">No schematic data</p>
+                </div>
               )}
             </div>
           </div>
 
-          <div className="p-6">
-            {activeTab === 'schematic' && schematic && (
-              <div className="h-[700px]">
-                <SchematicViewer schematic={schematic} />
-              </div>
-            )}
-
-            {activeTab === 'schematic' && !schematic && (
-              <div className="h-[700px] flex items-center justify-center">
-                <p className="text-gray-500">No schematic data available</p>
-              </div>
-            )}
-
-            {activeTab === 'footprint' && footprint && (
-              <div className="h-[700px]">
-                <FootprintViewer footprint={footprint} />
-              </div>
-            )}
-
-            {activeTab === 'footprint' && !footprint && (
-              <div className="h-[700px] flex items-center justify-center">
-                <p className="text-gray-500">No footprint data available</p>
-              </div>
-            )}
-
-            {activeTab === '3d' && has3DModel && (
-              <div className="h-[700px]">
-                <Model3DViewer
-                  modelUrl={`/api/3dmodel/${componentData.data['3d_model']}?format=obj`}
-                />
-              </div>
-            )}
+          {/* Footprint */}
+          <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden">
+            <div className="border-b border-gray-700 px-4 py-2">
+              <h2 className="text-sm font-semibold text-white">Footprint (2D)</h2>
+            </div>
+            <div className="p-3">
+              {footprint ? (
+                <div className="h-[600px]">
+                  <FootprintViewer footprint={footprint} />
+                </div>
+              ) : (
+                <div className="h-[600px] flex items-center justify-center">
+                  <p className="text-gray-500 text-sm">No footprint data</p>
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* 3D Model */}
+          {has3DModel ? (
+            <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden">
+              <div className="border-b border-gray-700 px-4 py-2">
+                <h2 className="text-sm font-semibold text-white">3D Model</h2>
+              </div>
+              <div className="p-3">
+                <div className="h-[600px]">
+                  <Model3DViewer
+                    modelUrl={`/api/3dmodel/${componentData.data['3d_model']}?format=obj`}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-gray-800 rounded-lg shadow-xl overflow-hidden">
+              <div className="border-b border-gray-700 px-4 py-2">
+                <h2 className="text-sm font-semibold text-white">3D Model</h2>
+              </div>
+              <div className="p-3">
+                <div className="h-[600px] flex items-center justify-center">
+                  <p className="text-gray-500 text-sm">No 3D model available</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
