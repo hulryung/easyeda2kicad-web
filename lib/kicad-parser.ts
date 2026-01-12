@@ -7,6 +7,47 @@ function safeParseFloat(value: string | undefined, defaultValue: number = 0): nu
   return isNaN(parsed) ? defaultValue : parsed;
 }
 
+// Extract 3D model UUID from SVGNODE in shape data
+export function extract3DModelUUID(dataStr: string | any): string | null {
+  try {
+    let data = dataStr;
+    if (typeof dataStr === 'string') {
+      data = JSON.parse(dataStr);
+    }
+
+    if (data.shape && Array.isArray(data.shape)) {
+      for (const shape of data.shape) {
+        let shapeStr: string;
+        if (typeof shape === 'string') {
+          shapeStr = shape;
+        } else if (shape.gge) {
+          shapeStr = shape.gge;
+        } else {
+          continue;
+        }
+
+        if (shapeStr.startsWith('SVGNODE')) {
+          const parts = shapeStr.split('~');
+          if (parts.length > 1) {
+            try {
+              const svgData = JSON.parse(parts[1]);
+              if (svgData.attrs && svgData.attrs.uuid) {
+                return svgData.attrs.uuid;
+              }
+            } catch (e) {
+              // Continue to next shape if JSON parse fails
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error extracting 3D model UUID:', error);
+  }
+
+  return null;
+}
+
 export function parseEasyEDAFootprint(dataStr: string | any): ParsedFootprint {
   const footprint: ParsedFootprint = {
     name: '',

@@ -1,6 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 
+// Extract 3D model UUID from SVGNODE in shape data
+function extract3DModelUUID(dataStr: any): string | null {
+  try {
+    if (dataStr?.shape && Array.isArray(dataStr.shape)) {
+      for (const shape of dataStr.shape) {
+        let shapeStr: string;
+        if (typeof shape === 'string') {
+          shapeStr = shape;
+        } else if (shape.gge) {
+          shapeStr = shape.gge;
+        } else {
+          continue;
+        }
+
+        if (shapeStr.startsWith('SVGNODE')) {
+          const parts = shapeStr.split('~');
+          if (parts.length > 1) {
+            try {
+              const svgData = JSON.parse(parts[1]);
+              if (svgData.attrs && svgData.attrs.uuid) {
+                return svgData.attrs.uuid;
+              }
+            } catch (e) {
+              // Continue to next shape if JSON parse fails
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error extracting 3D model UUID:', error);
+  }
+
+  return null;
+}
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ lcscId: string }> }
@@ -39,7 +75,9 @@ export async function GET(
 
     // Footprint data is retrieved from packageDetail
     const footprintData = result.packageDetail?.dataStr;
-    const uuid_3d = footprintData?.head?.uuid_3d || null;
+
+    // Extract 3D model UUID from SVGNODE in shape data
+    const uuid_3d = extract3DModelUUID(footprintData);
 
     return NextResponse.json({
       success: true,
