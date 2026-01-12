@@ -564,18 +564,20 @@ export default function SchematicViewer({ schematic }: SchematicViewerProps) {
           })}
 
           {/* Texts */}
-          {schematic.texts.map((text, i) => (
-            <text
-              key={`text-${i}`}
-              x={text.x}
-              y={text.y}
-              fontSize={text.size}
-              fill="#374151"
-              fontFamily="Arial, sans-serif"
-            >
-              {text.text}
-            </text>
-          ))}
+          {schematic.texts
+            .filter(text => !isNaN(text.x) && !isNaN(text.y) && !isNaN(text.size))
+            .map((text, i) => (
+              <text
+                key={`text-${i}`}
+                x={text.x}
+                y={text.y}
+                fontSize={text.size}
+                fill="#374151"
+                fontFamily="Arial, sans-serif"
+              >
+                {text.text}
+              </text>
+            ))}
         </svg>
       </div>
     </div>
