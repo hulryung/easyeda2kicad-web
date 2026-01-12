@@ -267,7 +267,18 @@ export default function ViewPage() {
               {componentData.data.description && (
                 <p className="text-sm text-gray-400">{componentData.data.description}</p>
               )}
-              <p className="text-xs text-gray-500 mt-1">LCSC ID: {lcscId}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                LCSC ID: {lcscId}
+                {' '}
+                <a
+                  href={`https://www.lcsc.com/product-detail/${lcscId}.html`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 hover:text-blue-300 underline"
+                >
+                  View on LCSC
+                </a>
+              </p>
             </div>
 
             <div className="flex gap-2">
