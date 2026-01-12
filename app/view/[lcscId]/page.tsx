@@ -8,6 +8,7 @@ import SchematicViewer, { parseSchematicData } from '@/components/SchematicViewe
 import { parseEasyEDAFootprint, convertToKiCadFootprint, convertToKiCadSymbol } from '@/lib/kicad-parser';
 import { ParsedFootprint } from '@/types/easyeda';
 import Link from 'next/link';
+import JSZip from 'jszip';
 
 interface ComponentData {
   success: boolean;
@@ -75,10 +76,80 @@ export default function ViewPage() {
       });
   }, [lcscId]);
 
+  const handleDownloadAll = async () => {
+    if (!componentData) return;
+
+    try {
+      const zip = new JSZip();
+
+      // Use component title as base name
+      const componentTitle = componentData.data.title?.replace(/[^a-zA-Z0-9_-]/g, '_') || lcscId;
+
+      // Add symbol file
+      if (schematic) {
+        const kicadSymbol = convertToKiCadSymbol(schematic);
+        const symbolPackage = schematic.name?.replace(/[^a-zA-Z0-9_-]/g, '_') || '';
+        const symbolName = symbolPackage ? `${symbolPackage}_${componentTitle}_${lcscId}` : `${componentTitle}_${lcscId}`;
+        zip.file(`${symbolName}.kicad_sym`, kicadSymbol);
+      }
+
+      // Add footprint file
+      if (footprint) {
+        const kicadFootprint = convertToKiCadFootprint(footprint);
+        const footprintPackage = footprint.name?.replace(/[^a-zA-Z0-9_-]/g, '_') || '';
+        const footprintName = footprintPackage ? `${footprintPackage}_${componentTitle}_${lcscId}` : `${componentTitle}_${lcscId}`;
+        zip.file(`${footprintName}.kicad_mod`, kicadFootprint);
+      }
+
+      // Add 3D models
+      if (componentData.data['3d_model']) {
+        const uuid = componentData.data['3d_model'];
+        const footprintPackage = footprint?.name?.replace(/[^a-zA-Z0-9_-]/g, '_') || '';
+        const modelBaseName = footprintPackage ? `${footprintPackage}_${componentTitle}_${lcscId}` : `${componentTitle}_${lcscId}`;
+
+        // Download OBJ
+        try {
+          const objResponse = await fetch(`/api/3dmodel/${uuid}?format=obj`);
+          if (objResponse.ok) {
+            const objBlob = await objResponse.blob();
+            zip.file(`${modelBaseName}.obj`, objBlob);
+          }
+        } catch (err) {
+          console.error('Error downloading OBJ:', err);
+        }
+
+        // Download STEP
+        try {
+          const stepResponse = await fetch(`/api/3dmodel/${uuid}?format=step`);
+          if (stepResponse.ok) {
+            const stepBlob = await stepResponse.blob();
+            zip.file(`${modelBaseName}.step`, stepBlob);
+          }
+        } catch (err) {
+          console.error('Error downloading STEP:', err);
+        }
+      }
+
+      // Generate and download zip
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${componentTitle}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error creating zip:', err);
+      alert('Failed to create zip file');
+    }
+  };
+
   const handleDownload = async (type: 'symbol' | 'footprint' | 'step' | 'obj') => {
     if (!componentData) return;
 
     try {
+      const componentTitle = componentData.data.title?.replace(/[^a-zA-Z0-9_-]/g, '_') || lcscId;
+
       if (type === 'symbol' && schematic) {
         // Convert to KiCad symbol format
         const kicadContent = convertToKiCadSymbol(schematic);
@@ -86,9 +157,8 @@ export default function ViewPage() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-
-        // Generate filename from symbol name or use LCSC ID
-        const symbolName = schematic.name.replace(/[^a-zA-Z0-9_-]/g, '_') || lcscId;
+        const symbolPackage = schematic.name?.replace(/[^a-zA-Z0-9_-]/g, '_') || '';
+        const symbolName = symbolPackage ? `${symbolPackage}_${componentTitle}_${lcscId}` : `${componentTitle}_${lcscId}`;
         a.download = `${symbolName}.kicad_sym`;
         a.click();
         URL.revokeObjectURL(url);
@@ -99,25 +169,26 @@ export default function ViewPage() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-
-        // Generate filename from footprint name or use LCSC ID
-        const footprintName = footprint.name.replace(/[^a-zA-Z0-9_-]/g, '_') || lcscId;
+        const footprintPackage = footprint.name?.replace(/[^a-zA-Z0-9_-]/g, '_') || '';
+        const footprintName = footprintPackage ? `${footprintPackage}_${componentTitle}_${lcscId}` : `${componentTitle}_${lcscId}`;
         a.download = `${footprintName}.kicad_mod`;
         a.click();
         URL.revokeObjectURL(url);
       } else if ((type === 'step' || type === 'obj') && componentData.data['3d_model']) {
         const uuid = componentData.data['3d_model'];
         const format = type === 'step' ? 'step' : 'obj';
-        const url = `/api/3dmodel/${uuid}?format=${format}`;
+        const apiUrl = `/api/3dmodel/${uuid}?format=${format}`;
 
-        const response = await fetch(url);
+        const response = await fetch(apiUrl);
         if (!response.ok) throw new Error('Failed to download model');
 
         const blob = await response.blob();
         const downloadUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = downloadUrl;
-        a.download = `${lcscId}_model.${format}`;
+        const footprintPackage = footprint?.name?.replace(/[^a-zA-Z0-9_-]/g, '_') || '';
+        const modelBaseName = footprintPackage ? `${footprintPackage}_${componentTitle}_${lcscId}` : `${componentTitle}_${lcscId}`;
+        a.download = `${modelBaseName}.${format}`;
         a.click();
         URL.revokeObjectURL(downloadUrl);
       }
@@ -188,6 +259,13 @@ export default function ViewPage() {
             </div>
 
             <div className="flex gap-2">
+              <button
+                onClick={handleDownloadAll}
+                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors font-semibold"
+                disabled={!schematic && !footprint && !has3DModel}
+              >
+                Download All (ZIP)
+              </button>
               <button
                 onClick={() => handleDownload('symbol')}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
