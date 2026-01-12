@@ -4,6 +4,14 @@ A web-based tool to convert EasyEDA/LCSC components to KiCad format with real-ti
 
 🌐 **Live Demo**: [https://easyeda2kicad-web.vercel.app](https://easyeda2kicad-web.vercel.app)
 
+## 📸 Screenshots
+
+### Landing Page
+![Landing Page](/public/landing-page.png)
+
+### Component Viewer
+![Component Viewer](/public/component-viewer.png)
+
 ## ✨ Features
 
 - 🔍 **Component Search** - Search any EasyEDA/LCSC component by ID
