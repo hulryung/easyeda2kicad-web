@@ -57,9 +57,9 @@ function parseSchematicData(dataStr: string | any): ParsedSchematic {
       data = JSON.parse(dataStr);
     }
 
-    // Get component name
+    // Get component package name (use package, not name, to match footprint naming)
     if (data.head?.c_para) {
-      schematic.name = data.head.c_para.name || data.head.c_para.package || '';
+      schematic.name = data.head.c_para.package || '';
     }
 
     // Parse shape array

@@ -130,12 +130,16 @@ export default function ViewPage() {
         }
       }
 
-      // Generate and download zip
+      // Generate and download zip with consistent naming
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       const url = URL.createObjectURL(zipBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${componentTitle}.zip`;
+
+      // Use footprint package name for ZIP file naming (matching individual files)
+      const footprintPackage = footprint?.name?.replace(/[^a-zA-Z0-9_-]/g, '_') || '';
+      const zipName = footprintPackage ? `${footprintPackage}_${componentTitle}_${lcscId}` : `${componentTitle}_${lcscId}`;
+      a.download = `${zipName}.zip`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
