@@ -170,6 +170,9 @@ export default function Model3DViewer({ modelUrl }: Model3DViewerProps) {
             </Stage>
           </Suspense>
 
+          {/* Coordinate axes */}
+          <axesHelper args={[3]} />
+
           <Grid
             args={[20, 20]}
             cellSize={1}
