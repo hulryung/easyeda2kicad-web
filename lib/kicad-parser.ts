@@ -111,7 +111,8 @@ export function parseEasyEDAFootprint(dataStr: string | any): ParsedFootprint {
 }
 
 function parsePad(parts: string[]) {
-  // EasyEDA PAD format: PAD~shape~X~Y~width~height~layer~?~number~?~points~rotation~...
+  // EasyEDA PAD format: PAD~shape~X~Y~width~height~layer~net~number~hole_radius~points~rotation~...
+  // Indices: 0=PAD, 1=shape, 2=X, 3=Y, 4=width, 5=height, 6=layer, 7=net, 8=number, 9=hole_radius, 10=points, 11=rotation
   // Use original coordinates, viewBox will handle scaling
   const shape = parts[1] || 'RECT';
   const x = safeParseFloat(parts[2]);
@@ -120,10 +121,11 @@ function parsePad(parts: string[]) {
   const height = safeParseFloat(parts[5]);
   const layer = parts[6] || '1';
   const number = parts[8] || '';
+  const holeRadius = safeParseFloat(parts[9]) || 0;
   const rotation = safeParseFloat(parts[11]) || 0; // Rotation in degrees (parts[11])
 
-  // Determine type by layer (1 = top, 2 = bottom, 11 = through-hole)
-  const type = layer === '11' ? 'through-hole' : 'smd';
+  // Determine type by hole_radius (matches easyeda2kicad.py behavior)
+  const type = holeRadius > 0 ? 'through-hole' : 'smd';
 
   return {
     number,
@@ -133,7 +135,7 @@ function parsePad(parts: string[]) {
     y,
     width,
     height,
-    drill: type === 'through-hole' ? width * 0.6 : undefined,
+    drill: holeRadius > 0 ? holeRadius * 2 : undefined, // Use actual hole diameter
     rotation,
   };
 }
