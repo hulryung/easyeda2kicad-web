@@ -233,9 +233,10 @@ export default function FootprintViewer({ footprint }: FootprintViewerProps) {
             .map((pad, i) => {
               const isCircle = pad.shape === 'circle' || pad.shape === 'ELLIPSE';
               const color = pad.type === 'smd' ? '#fbbf24' : '#ef4444';
+              const rotation = pad.rotation || 0;
 
               return (
-                <g key={`pad-${i}`}>
+                <g key={`pad-${i}`} transform={`rotate(${rotation} ${pad.x} ${pad.y})`}>
                 {isCircle ? (
                   <circle
                     cx={pad.x}

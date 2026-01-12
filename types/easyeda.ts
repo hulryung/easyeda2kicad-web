@@ -38,6 +38,7 @@ export interface ParsedFootprint {
     width: number;
     height: number;
     drill?: number;
+    rotation?: number;
   }>;
   lines: Array<{
     x1: number;

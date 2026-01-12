@@ -111,7 +111,7 @@ export function parseEasyEDAFootprint(dataStr: string | any): ParsedFootprint {
 }
 
 function parsePad(parts: string[]) {
-  // EasyEDA PAD format: PAD~shape~X~Y~width~height~layer~?~number~...
+  // EasyEDA PAD format: PAD~shape~X~Y~width~height~layer~?~number~?~points~rotation~...
   // Use original coordinates, viewBox will handle scaling
   const shape = parts[1] || 'RECT';
   const x = safeParseFloat(parts[2]);
@@ -120,6 +120,7 @@ function parsePad(parts: string[]) {
   const height = safeParseFloat(parts[5]);
   const layer = parts[6] || '1';
   const number = parts[8] || '';
+  const rotation = safeParseFloat(parts[11]) || 0; // Rotation in degrees (parts[11])
 
   // Determine type by layer (1 = top, 2 = bottom, 11 = through-hole)
   const type = layer === '11' ? 'through-hole' : 'smd';
@@ -133,6 +134,7 @@ function parsePad(parts: string[]) {
     width,
     height,
     drill: type === 'through-hole' ? width * 0.6 : undefined,
+    rotation,
   };
 }
 
