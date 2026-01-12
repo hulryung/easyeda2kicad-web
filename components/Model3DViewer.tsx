@@ -188,6 +188,8 @@ export default function Model3DViewer({ modelUrl }: Model3DViewerProps) {
             dampingFactor={0.05}
             autoRotate
             autoRotateSpeed={2}
+            minPolarAngle={-Infinity}
+            maxPolarAngle={Infinity}
           />
         </Canvas>
       </div>
