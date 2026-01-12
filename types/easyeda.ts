@@ -71,4 +71,9 @@ export interface ParsedFootprint {
     size: number;
     layer: string;
   }>;
+  solidRegions: Array<{
+    layer: string;
+    path: string;
+    fillType: string;
+  }>;
 }

@@ -70,6 +70,26 @@ export default function FootprintViewer({ footprint }: FootprintViewerProps) {
       hasValidData = true;
     });
 
+    // Parse SOLIDREGION paths to get bounds
+    footprint.solidRegions?.forEach(region => {
+      if (!region.path) return;
+      // Extract coordinates from SVG path
+      const coords = region.path.match(/[\d.]+/g);
+      if (coords) {
+        for (let i = 0; i < coords.length; i += 2) {
+          const x = parseFloat(coords[i]);
+          const y = parseFloat(coords[i + 1]);
+          if (!isNaN(x) && !isNaN(y)) {
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+            hasValidData = true;
+          }
+        }
+      }
+    });
+
     if (hasValidData && minX !== Infinity && !isNaN(minX) && !isNaN(maxX) && !isNaN(minY) && !isNaN(maxY)) {
       const contentWidth = maxX - minX;
       const contentHeight = maxY - minY;
@@ -310,6 +330,44 @@ export default function FootprintViewer({ footprint }: FootprintViewerProps) {
                 {text.text}
               </text>
             ))}
+
+          {/* Render SOLIDREGION layers */}
+          {footprint.solidRegions?.map((region, i) => {
+            // Layer color mapping (matching LCSC appearance)
+            let fill = '#808080';
+            let opacity = 0.3;
+
+            switch (region.layer) {
+              case '5': // TopPasteMaskLayer - render as rounded green bars
+                fill = '#61B872'; // Green like LCSC
+                opacity = 0.8;
+                break;
+              case '7': // TopSolderMaskLayer - darker overlay
+                fill = '#2a2a2a';
+                opacity = 0.4;
+                break;
+              case '99': // ComponentShapeLayer
+                fill = '#00CCCC';
+                opacity = 0.2;
+                break;
+              case '100': // LeadShapeLayer
+                fill = '#CC9999';
+                opacity = 0.3;
+                break;
+              default:
+                return null; // Don't render other layers
+            }
+
+            return (
+              <path
+                key={`solidregion-${i}`}
+                d={region.path}
+                fill={fill}
+                fillOpacity={opacity}
+                stroke="none"
+              />
+            );
+          })}
         </svg>
       </div>
 

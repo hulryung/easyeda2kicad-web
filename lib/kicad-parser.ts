@@ -56,6 +56,7 @@ export function parseEasyEDAFootprint(dataStr: string | any): ParsedFootprint {
     circles: [],
     arcs: [],
     texts: [],
+    solidRegions: [],
   };
 
   try {
@@ -99,6 +100,9 @@ export function parseEasyEDAFootprint(dataStr: string | any): ParsedFootprint {
             break;
           case 'TEXT':
             footprint.texts.push(parseText(parts));
+            break;
+          case 'SOLIDREGION':
+            footprint.solidRegions.push(parseSolidRegion(parts));
             break;
         }
       }
@@ -199,6 +203,15 @@ function parseText(parts: string[]) {
     y: safeParseFloat(parts[3]),
     size: safeParseFloat(parts[5], 12),
     layer: parts[6] || '1',
+  };
+}
+
+function parseSolidRegion(parts: string[]) {
+  // EasyEDA SOLIDREGION format: SOLIDREGION~layer~unused~path~fill_type~id~...
+  return {
+    layer: parts[1] || '1',
+    path: parts[3] || '', // SVG path data
+    fillType: parts[4] || 'solid',
   };
 }
 
