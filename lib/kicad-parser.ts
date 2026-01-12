@@ -1,5 +1,12 @@
 import { ParsedFootprint } from '@/types/easyeda';
 
+// Safe parseFloat that returns a default value if NaN
+function safeParseFloat(value: string | undefined, defaultValue: number = 0): number {
+  if (!value) return defaultValue;
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? defaultValue : parsed;
+}
+
 export function parseEasyEDAFootprint(dataStr: string | any): ParsedFootprint {
   const footprint: ParsedFootprint = {
     name: '',
@@ -64,11 +71,12 @@ export function parseEasyEDAFootprint(dataStr: string | any): ParsedFootprint {
 
 function parsePad(parts: string[]) {
   // EasyEDA PAD format: PAD~shape~X~Y~width~height~layer~?~number~...
+  // Use original coordinates, viewBox will handle scaling
   const shape = parts[1] || 'RECT';
-  const x = parseFloat(parts[2] || '0');
-  const y = parseFloat(parts[3] || '0');
-  const width = parseFloat(parts[4] || '0');
-  const height = parseFloat(parts[5] || '0');
+  const x = safeParseFloat(parts[2]);
+  const y = safeParseFloat(parts[3]);
+  const width = safeParseFloat(parts[4]);
+  const height = safeParseFloat(parts[5]);
   const layer = parts[6] || '1';
   const number = parts[8] || '';
 
@@ -88,35 +96,53 @@ function parsePad(parts: string[]) {
 }
 
 function parseTrack(parts: string[]) {
-  // EasyEDA TRACK format: TRACK~width~startX~startY~endX~endY~layer~...
+  // EasyEDA TRACK format: TRACK~width~layer~~x1 y1 x2 y2~id~...
+  // Use original coordinates, viewBox will handle scaling
+  const width = safeParseFloat(parts[1]);
+  const layer = parts[2] || '1';
+
+  // Coordinates are in parts[4] as space-separated values
+  const coords = (parts[4] || '').trim().split(/\s+/);
+  if (coords.length >= 4) {
+    return {
+      x1: safeParseFloat(coords[0]),
+      y1: safeParseFloat(coords[1]),
+      x2: safeParseFloat(coords[2]),
+      y2: safeParseFloat(coords[3]),
+      width,
+      layer,
+    };
+  }
+
+  // Fallback for old format
   return {
-    x1: parseFloat(parts[2] || '0'),
-    y1: parseFloat(parts[3] || '0'),
-    x2: parseFloat(parts[4] || '0'),
-    y2: parseFloat(parts[5] || '0'),
-    width: parseFloat(parts[1] || '0'),
-    layer: parts[6] || '1',
+    x1: 0,
+    y1: 0,
+    x2: 0,
+    y2: 0,
+    width,
+    layer,
   };
 }
 
 function parseCircle(parts: string[]) {
   return {
-    x: parseFloat(parts[1] || '0'),
-    y: parseFloat(parts[2] || '0'),
-    radius: parseFloat(parts[3] || '0'),
-    width: parseFloat(parts[4] || '0'),
+    x: safeParseFloat(parts[1]),
+    y: safeParseFloat(parts[2]),
+    radius: safeParseFloat(parts[3]),
+    width: safeParseFloat(parts[4]),
     layer: parts[5] || '1',
   };
 }
 
 function parseArc(parts: string[]) {
   return {
-    x: parseFloat(parts[2] || '0'),
-    y: parseFloat(parts[3] || '0'),
-    startX: parseFloat(parts[4] || '0'),
-    startY: parseFloat(parts[5] || '0'),
-    angle: parseFloat(parts[6] || '0'),
-    width: parseFloat(parts[1] || '0'),
+    x: safeParseFloat(parts[2]),
+    y: safeParseFloat(parts[3]),
+    startX: safeParseFloat(parts[4]),
+    startY: safeParseFloat(parts[5]),
+    angle: safeParseFloat(parts[6]),
+    width: safeParseFloat(parts[1]),
     layer: parts[7] || '1',
   };
 }
@@ -124,9 +150,9 @@ function parseArc(parts: string[]) {
 function parseText(parts: string[]) {
   return {
     text: parts[1] || '',
-    x: parseFloat(parts[2] || '0'),
-    y: parseFloat(parts[3] || '0'),
-    size: parseFloat(parts[5] || '12'),
+    x: safeParseFloat(parts[2]),
+    y: safeParseFloat(parts[3]),
+    size: safeParseFloat(parts[5], 12),
     layer: parts[6] || '1',
   };
 }
