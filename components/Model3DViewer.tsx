@@ -161,8 +161,6 @@ export default function Model3DViewer({ modelUrl }: Model3DViewerProps) {
 
           <OrbitControls
             makeDefault
-            minPolarAngle={0}
-            maxPolarAngle={Math.PI / 2}
             enableDamping
             dampingFactor={0.05}
           />
