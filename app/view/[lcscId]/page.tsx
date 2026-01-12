@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import FootprintViewer from '@/components/FootprintViewer';
 import Model3DViewer from '@/components/Model3DViewer';
-import { parseEasyEDAFootprint } from '@/lib/kicad-parser';
+import { parseEasyEDAFootprint, convertToKiCadFootprint } from '@/lib/kicad-parser';
 import { ParsedFootprint } from '@/types/easyeda';
 import Link from 'next/link';
 
@@ -66,12 +66,16 @@ export default function ViewPage() {
 
     try {
       if (type === 'footprint' && footprint) {
-        const json = JSON.stringify(footprint, null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
+        // Convert to KiCad footprint format
+        const kicadContent = convertToKiCadFootprint(footprint);
+        const blob = new Blob([kicadContent], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${lcscId}_footprint.json`;
+
+        // Generate filename from footprint name or use LCSC ID
+        const footprintName = footprint.name.replace(/[^a-zA-Z0-9_-]/g, '_') || lcscId;
+        a.download = `${footprintName}.kicad_mod`;
         a.click();
         URL.revokeObjectURL(url);
       } else if ((type === 'step' || type === 'obj') && componentData.data['3d_model']) {
