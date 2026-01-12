@@ -1,12 +1,33 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function Home() {
   const router = useRouter();
   const [lcscId, setLcscId] = useState('');
   const [loading, setLoading] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Load search history from localStorage
+    const history = localStorage.getItem('searchHistory');
+    if (history) {
+      try {
+        setSearchHistory(JSON.parse(history));
+      } catch (error) {
+        console.error('Failed to parse search history:', error);
+      }
+    }
+  }, []);
+
+  const saveToHistory = (id: string) => {
+    const history = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+    // Add to front and remove duplicates, keep max 8 items
+    const newHistory = [id, ...history.filter((h: string) => h !== id)].slice(0, 8);
+    localStorage.setItem('searchHistory', JSON.stringify(newHistory));
+    setSearchHistory(newHistory);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,6 +46,7 @@ export default function Home() {
         throw new Error('Component not found');
       }
 
+      saveToHistory(cleanId);
       router.push(`/view/${cleanId}`);
     } catch (error) {
       console.error('Error:', error);
@@ -34,6 +56,7 @@ export default function Home() {
   };
 
   const exampleIds = ['C2040', 'C25804', 'C2828', 'C14663'];
+  const displayExamples = searchHistory.length > 0 ? searchHistory : exampleIds;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
@@ -88,9 +111,11 @@ export default function Home() {
             </form>
 
             <div className="mt-4">
-              <p className="text-xs text-gray-400 mb-2">Try these examples:</p>
+              <p className="text-xs text-gray-400 mb-2">
+                {searchHistory.length > 0 ? 'Recent searches:' : 'Try these examples:'}
+              </p>
               <div className="flex flex-wrap gap-2">
-                {exampleIds.map((id) => (
+                {displayExamples.map((id) => (
                   <button
                     key={id}
                     onClick={() => setLcscId(id)}

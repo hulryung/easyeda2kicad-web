@@ -66,6 +66,15 @@ export default function ViewPage() {
           }
         }
 
+        // Save to search history
+        try {
+          const history = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+          const newHistory = [lcscId.toUpperCase(), ...history.filter((h: string) => h !== lcscId.toUpperCase())].slice(0, 8);
+          localStorage.setItem('searchHistory', JSON.stringify(newHistory));
+        } catch (err) {
+          console.error('Failed to save search history:', err);
+        }
+
         setLoading(false);
       })
       .catch(err => {
