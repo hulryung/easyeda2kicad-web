@@ -40,7 +40,10 @@ export interface ParsedFootprint {
     width: number;
     height: number;
     drill?: number;
+    holeLength?: number;
     rotation?: number;
+    layerId: number;
+    points?: string;
   }>;
   lines: Array<{
     x1: number;

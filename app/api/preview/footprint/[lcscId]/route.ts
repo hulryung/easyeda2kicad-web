@@ -42,7 +42,7 @@ export async function GET(
       : JSON.stringify(footprintData);
 
     const parsed = parseEasyEDAFootprint(footprintStr);
-    const kicadFootprint = convertToKiCadFootprint(parsed, parsed.originX, parsed.originY);
+    const kicadFootprint = convertToKiCadFootprint(parsed, parsed.originX, parsed.originY, lcscId);
 
     // Return as plain text
     return new NextResponse(kicadFootprint, {

@@ -251,17 +251,14 @@ export default function FootprintViewer({ footprint }: FootprintViewerProps) {
           {footprint.pads
             .filter(pad => !isNaN(pad.x) && !isNaN(pad.y) && !isNaN(pad.width) && !isNaN(pad.height))
             .map((pad, i) => {
-              const isCircle = pad.shape === 'circle' || pad.shape === 'ELLIPSE';
+              const isCircle = pad.shape === 'ELLIPSE';
               const color = pad.type === 'smd' ? '#fbbf24' : '#ef4444';
               const rotation = pad.rotation || 0;
 
-              // Calculate corner radius for pads
-              // SMD pads typically have rounded corners (10-25% of width)
-              // Through-hole and oval pads have full radius
               let cornerRadius = 0;
-              if (isCircle || pad.shape === 'oval') {
+              if (isCircle || pad.shape === 'OVAL') {
                 cornerRadius = pad.width / 2;
-              } else if (pad.type === 'smd' && pad.shape === 'rect') {
+              } else if (pad.type === 'smd' && pad.shape === 'RECT') {
                 // SMD rectangular pads get rounded corners (20% of smaller dimension)
                 cornerRadius = Math.min(pad.width, pad.height) * 0.2;
               }

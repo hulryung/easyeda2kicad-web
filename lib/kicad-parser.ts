@@ -125,18 +125,21 @@ export function parseEasyEDAFootprint(dataStr: string | any): ParsedFootprint {
 }
 
 function parsePad(parts: string[]) {
-  // EasyEDA PAD format: PAD~shape~X~Y~width~height~layer~net~number~hole_radius~points~rotation~...
-  // Indices: 0=PAD, 1=shape, 2=X, 3=Y, 4=width, 5=height, 6=layer, 7=net, 8=number, 9=hole_radius, 10=points, 11=rotation
-  // Use original coordinates, viewBox will handle scaling
+  // EasyEDA PAD format (easyeda2kicad.py EeFootprintPad, 18 fields after "PAD~"):
+  // shape, center_x, center_y, width, height, layer_id, net, number, hole_radius,
+  // points, rotation, id, hole_length, slot_outline, is_plated, is_locked, (...)
+  // After split, parts[0]="PAD", so fields shift by +1.
   const shape = parts[1] || 'RECT';
   const x = safeParseFloat(parts[2]);
   const y = safeParseFloat(parts[3]);
   const width = safeParseFloat(parts[4]);
   const height = safeParseFloat(parts[5]);
-  const layer = parts[6] || '1';
+  const layerId = parseInt(parts[6] || '1', 10) || 1;
   const number = parts[8] || '';
   const holeRadius = safeParseFloat(parts[9]) || 0;
-  const rotation = safeParseFloat(parts[11]) || 0; // Rotation in degrees (parts[11])
+  const points = parts[10] || '';
+  const rotation = safeParseFloat(parts[11]) || 0;
+  const holeLength = safeParseFloat(parts[13]) || 0;
 
   // Determine type by hole_radius (matches easyeda2kicad.py behavior)
   const type = holeRadius > 0 ? 'through-hole' : 'smd';
@@ -144,13 +147,16 @@ function parsePad(parts: string[]) {
   return {
     number,
     type,
-    shape: shape.toLowerCase(),
+    shape: shape.toUpperCase(),
     x,
     y,
     width,
     height,
-    drill: holeRadius > 0 ? holeRadius * 2 : undefined, // Use actual hole diameter
+    drill: holeRadius > 0 ? holeRadius * 2 : undefined,
+    holeLength: holeLength > 0 ? holeLength : undefined,
     rotation,
+    layerId,
+    points,
   };
 }
 
@@ -245,26 +251,128 @@ function convertToKiCadMm(easyedaValue: number): number {
   return easyedaValue * 0.254; // 10mil to mm conversion
 }
 
-// Convert EasyEDA layer ID to KiCad layer name (based on easyeda2kicad.py)
-function convertLayer(layerId: string): string {
-  switch (layerId) {
-    case '1': return 'F.Cu';
-    case '2': return 'B.Cu';
-    case '3': return 'F.SilkS';
-    case '4': return 'B.SilkS';
-    case '5': return 'F.Paste';
-    case '6': return 'B.Paste';
-    case '7': return 'F.Mask';
-    case '8': return 'B.Mask';
-    case '10': return 'Edge.Cuts';
-    case '11': return 'Edge.Cuts';
-    case '12': return 'Cmts.User';
-    case '13': return 'F.Fab';
-    case '14': return 'B.Fab';
-    case '15': return 'Dwgs.User';
-    case '101': return 'F.Fab';
-    default: return 'F.Fab';
+// Mirrors easyeda2kicad.py KI_LAYERS (parameters_kicad_footprint.py).
+// Layer 11 is "Multi-Layer" — only valid for pads (see KI_PAD_LAYER below),
+// so it's intentionally absent here.
+const KI_LAYERS: Record<number, string> = {
+  1: 'F.Cu',
+  2: 'B.Cu',
+  3: 'F.SilkS',
+  4: 'B.SilkS',
+  5: 'F.Paste',
+  6: 'B.Paste',
+  7: 'F.Mask',
+  8: 'B.Mask',
+  10: 'Edge.Cuts',
+  12: 'Cmts.User',
+  13: 'F.Fab',
+  14: 'B.Fab',
+  15: 'Dwgs.User',
+  99: 'F.CrtYd',
+  100: 'F.Fab',
+  101: 'F.SilkS',
+};
+
+const KI_PAD_LAYER: Record<number, string> = {
+  1: 'F.Cu F.Paste F.Mask',
+  2: 'B.Cu B.Paste B.Mask',
+  3: 'F.SilkS',
+  11: '*.Cu *.Paste *.Mask',
+  13: 'F.Fab',
+  15: 'Dwgs.User',
+};
+
+const KI_PAD_LAYER_THT: Record<number, string> = {
+  1: 'F.Cu F.Mask',
+  2: 'B.Cu B.Mask',
+  3: 'F.SilkS',
+  11: '*.Cu *.Mask',
+  13: 'F.Fab',
+  15: 'Dwgs.User',
+};
+
+const KI_PAD_SHAPE: Record<string, string> = {
+  ELLIPSE: 'circle',
+  RECT: 'rect',
+  OVAL: 'oval',
+  POLYGON: 'custom',
+};
+
+function convertLayer(layerId: string | number): string {
+  const id = typeof layerId === 'number' ? layerId : parseInt(layerId, 10);
+  return KI_LAYERS[id] ?? 'F.Fab';
+}
+
+// Matches easyeda2kicad.py angle_to_ki: normalizes rotation to (-180, 180].
+function angleToKi(rotation: number): number {
+  if (isNaN(rotation)) return 0;
+  return rotation > 180 ? -(360 - rotation) : rotation;
+}
+
+// Layers on which SOLIDREGION is imported (mirrors easyeda2kicad.py).
+// Layer 99 (ComponentShapeLayer) renders as F.CrtYd outline; others as filled fp_poly.
+// Layers 100 (lead shapes), 101 (polarity), 5/6 (paste) are intentionally skipped.
+const SOLID_REGION_LAYERS = new Set<number>([3, 4, 13, 14, 99]);
+
+// Parse an EasyEDA SOLIDREGION SVG path into mm points relative to (originX, originY).
+// Supports M, L, H, V, A (arc endpoint only), Z — same coverage as
+// easyeda2kicad.py _parse_solid_region_path.
+function parseSolidRegionPath(path: string, originX: number, originY: number): Array<[number, number]> {
+  const points: Array<[number, number]> = [];
+  let curX = 0;
+  let curY = 0;
+  const tokens = path.trim().split(/(?=[MLHVAZmlhvaz])/);
+  for (const rawToken of tokens) {
+    const token = rawToken.trim();
+    if (!token) continue;
+    const cmd = token[0];
+    const args = token
+      .slice(1)
+      .trim()
+      .split(/[,\s]+/)
+      .filter(Boolean);
+    if (cmd === 'M' && args.length >= 2) {
+      curX = parseFloat(args[0]);
+      curY = parseFloat(args[1]);
+      points.push([convertToKiCadMm(curX - originX), convertToKiCadMm(curY - originY)]);
+    } else if (cmd === 'L' && args.length >= 2) {
+      curX = parseFloat(args[0]);
+      curY = parseFloat(args[1]);
+      points.push([convertToKiCadMm(curX - originX), convertToKiCadMm(curY - originY)]);
+    } else if (cmd === 'H' && args.length >= 1) {
+      curX = parseFloat(args[0]);
+      points.push([convertToKiCadMm(curX - originX), convertToKiCadMm(curY - originY)]);
+    } else if (cmd === 'V' && args.length >= 1) {
+      curY = parseFloat(args[0]);
+      points.push([convertToKiCadMm(curX - originX), convertToKiCadMm(curY - originY)]);
+    } else if (cmd === 'A' && args.length >= 7) {
+      curX = parseFloat(args[5]);
+      curY = parseFloat(args[6]);
+      points.push([convertToKiCadMm(curX - originX), convertToKiCadMm(curY - originY)]);
+    } else if (cmd === 'Z' && points.length > 0) {
+      const first = points[0];
+      const last = points[points.length - 1];
+      if (first[0] !== last[0] || first[1] !== last[1]) {
+        points.push([first[0], first[1]]);
+      }
+    }
   }
+  return points;
+}
+
+// Matches easyeda2kicad.py drill_to_ki for oval slots.
+function drillToKi(holeRadius: number, holeLength: number | undefined, padHeight: number, padWidth: number): string {
+  if (holeRadius <= 0) return '';
+  if (holeLength && holeLength !== 0) {
+    const maxDistanceHole = Math.max(holeRadius * 2, holeLength);
+    const pos0 = padHeight - maxDistanceHole;
+    const pos90 = padWidth - maxDistanceHole;
+    if (pos0 >= pos90) {
+      return ` (drill oval ${(holeRadius * 2).toFixed(4)} ${holeLength.toFixed(4)})`;
+    }
+    return ` (drill oval ${holeLength.toFixed(4)} ${(holeRadius * 2).toFixed(4)})`;
+  }
+  return ` (drill ${(holeRadius * 2).toFixed(4)})`;
 }
 
 // Convert schematic symbol to KiCad symbol format
@@ -368,57 +476,34 @@ export function convertToKiCadSymbol(schematic: any): string {
   return lines.join('\n');
 }
 
-export function convertToKiCadFootprint(footprint: ParsedFootprint, originX?: number, originY?: number): string {
+export function convertToKiCadFootprint(
+  footprint: ParsedFootprint,
+  originX?: number,
+  originY?: number,
+  lcscId?: string,
+): string {
   const lines: string[] = [];
 
-  // Sanitize footprint name for filename
-  const footprintName = footprint.name.replace(/[^a-zA-Z0-9_-]/g, '_') || 'Footprint';
+  // Keep the EasyEDA package name (dots and all) — matches easyeda2kicad.py,
+  // which uses ee_data_info["package"] verbatim. Only strip characters that
+  // would break KiCad s-expression parsing (quotes/parens).
+  const footprintName = (footprint.name || 'Footprint').replace(/["()]/g, '_');
 
-  // Calculate bounding box for reference text positioning
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  // Default origin to head.x/head.y (in EU) if not supplied.
+  const normOriginX = originX ?? 0;
+  const normOriginY = originY ?? 0;
 
-  footprint.pads.forEach(pad => {
-    if (!isNaN(pad.x) && !isNaN(pad.y)) {
-      minX = Math.min(minX, pad.x - pad.width / 2);
-      minY = Math.min(minY, pad.y - pad.height / 2);
-      maxX = Math.max(maxX, pad.x + pad.width / 2);
-      maxY = Math.max(maxY, pad.y + pad.height / 2);
-    }
+  // Reference/Value Y placement mirrors easyeda2kicad.py:
+  //   y_low = min(pad.pos_y) - 4mm,  y_high = max(pad.pos_y) + 4mm
+  // Pad positions here are in mm relative to origin (after convertToKiCadMm).
+  const padYs: number[] = [];
+  footprint.pads.forEach((pad) => {
+    if (!isNaN(pad.y)) padYs.push(convertToKiCadMm(pad.y - normOriginY));
   });
-
-  footprint.lines.forEach(line => {
-    if (!isNaN(line.x1) && !isNaN(line.y1)) {
-      minX = Math.min(minX, line.x1, line.x2);
-      minY = Math.min(minY, line.y1, line.y2);
-      maxX = Math.max(maxX, line.x1, line.x2);
-      maxY = Math.max(maxY, line.y1, line.y2);
-    }
-  });
-
-  footprint.circles.forEach(circle => {
-    if (!isNaN(circle.x) && !isNaN(circle.y)) {
-      minX = Math.min(minX, circle.x - circle.radius);
-      minY = Math.min(minY, circle.y - circle.radius);
-      maxX = Math.max(maxX, circle.x + circle.radius);
-      maxY = Math.max(maxY, circle.y + circle.radius);
-    }
-  });
-
-  // Default to 0 if no valid data
-  if (minX === Infinity) minX = 0;
-  if (minY === Infinity) minY = 0;
-  if (maxX === -Infinity) maxX = 0;
-  if (maxY === -Infinity) maxY = 0;
-
-  // Use provided origin (from footprint head x,y) or fallback to calculated minX/minY
-  // easyeda2kicad.py uses ee_data_str["head"]["x"] and ["y"] as the origin
-  const normOriginX = originX !== undefined ? originX : minX;
-  const normOriginY = originY !== undefined ? originY : minY;
-
-  // Calculate bbox dimensions in mm for reference text positioning
-  const bboxHeight = convertToKiCadMm(maxY - minY);
-  const refY = -(bboxHeight / 2 + 1); // Place reference above footprint
-  const valY = bboxHeight / 2 + 1;    // Place value below footprint
+  const yLow = padYs.length ? Math.min(...padYs) : 0;
+  const yHigh = padYs.length ? Math.max(...padYs) : 0;
+  const refY = yLow - 4;
+  const valY = yHigh + 4;
 
   lines.push(`(footprint "${footprintName}" (version 20211014) (generator easyeda2kicad)`);
   lines.push('  (layer "F.Cu")');
@@ -427,15 +512,22 @@ export function convertToKiCadFootprint(footprint: ParsedFootprint, originX?: nu
   const hasThroughHole = footprint.pads.some(pad => pad.type === 'through-hole');
   lines.push(`  (attr ${hasThroughHole ? 'through_hole' : 'smd'})`);
 
-  // Add reference text
-  lines.push(`  (fp_text reference "REF**" (at 0 ${refY.toFixed(2)}) (layer "F.SilkS")`);
+  // Reference / value / fab-ref texts (KI_REFERENCE / KI_PACKAGE_VALUE / KI_FAB_REF).
+  lines.push(`  (fp_text reference "REF**" (at 0.000 ${refY.toFixed(3)}) (layer "F.SilkS")`);
   lines.push('    (effects (font (size 1 1) (thickness 0.15)))');
   lines.push('  )');
 
-  // Add value text
-  lines.push(`  (fp_text value "${footprintName}" (at 0 ${valY.toFixed(2)}) (layer "F.Fab")`);
+  lines.push(`  (fp_text value "${footprintName}" (at 0.000 ${valY.toFixed(3)}) (layer "F.Fab")`);
   lines.push('    (effects (font (size 1 1) (thickness 0.15)))');
   lines.push('  )');
+
+  lines.push('  (fp_text user %R (at 0 0) (layer "F.Fab")');
+  lines.push('    (effects (font (size 1 1) (thickness 0.15)))');
+  lines.push('  )');
+
+  if (lcscId) {
+    lines.push(`  (property "LCSC Part" "${lcscId}")`);
+  }
 
   // Add lines (silkscreen/fab)
   footprint.lines.forEach((line, i) => {
@@ -480,28 +572,64 @@ export function convertToKiCadFootprint(footprint: ParsedFootprint, originX?: nu
   });
 
   // Add pads
-  footprint.pads.forEach((pad, i) => {
-    const x = convertToKiCadMm(pad.x - normOriginX);
-    const y = convertToKiCadMm(pad.y - normOriginY);
-    const width = convertToKiCadMm(pad.width);
-    const height = convertToKiCadMm(pad.height);
-
+  footprint.pads.forEach((pad) => {
     const padType = pad.type === 'through-hole' ? 'thru_hole' : 'smd';
-    let shape = 'rect';
-    if (pad.shape === 'circle' || pad.shape === 'ellipse') {
-      shape = 'circle';
-    } else if (pad.shape === 'oval') {
-      shape = 'oval';
+    const shape = KI_PAD_SHAPE[pad.shape] ?? 'custom';
+    const isCustomShape = shape === 'custom';
+
+    // Layer lookup mirrors easyeda2kicad.py (KI_PAD_LAYER / KI_PAD_LAYER_THT).
+    // SMD uses *.Paste, THT omits it.
+    const layerTable = pad.drill ? KI_PAD_LAYER_THT : KI_PAD_LAYER;
+    const layers = layerTable[pad.layerId] ?? '';
+    if (!layers) {
+      // Unknown EasyEDA pad layer — skip rather than emit invalid KiCad.
+      return;
     }
 
-    const layers = pad.type === 'through-hole' ? '"*.Cu" "*.Mask"' : '"F.Cu" "F.Paste" "F.Mask"';
+    // EasyEDA-mm-equivalent position (pad center relative to origin)
+    const posX = convertToKiCadMm(pad.x - normOriginX);
+    const posY = convertToKiCadMm(pad.y - normOriginY);
+    let width = convertToKiCadMm(pad.width);
+    let height = convertToKiCadMm(pad.height);
+    let orientation = angleToKi(pad.rotation || 0);
 
-    if (pad.drill) {
-      const drill = convertToKiCadMm(pad.drill);
-      lines.push(`  (pad "${pad.number}" ${padType} ${shape} (at ${x.toFixed(4)} ${y.toFixed(4)}) (size ${width.toFixed(4)} ${height.toFixed(4)}) (drill ${drill.toFixed(4)}) (layers ${layers}))`);
-    } else {
-      lines.push(`  (pad "${pad.number}" ${padType} ${shape} (at ${x.toFixed(4)} ${y.toFixed(4)}) (size ${width.toFixed(4)} ${height.toFixed(4)}) (layers ${layers}))`);
+    // Pad number normalization: EasyEDA sometimes uses "name(number)".
+    let number = pad.number;
+    if (number.includes('(') && number.includes(')')) {
+      number = number.split('(')[1].split(')')[0];
     }
+
+    let polygonClause = '';
+    if (isCustomShape) {
+      // Polygon points already have rotation baked in by EasyEDA.
+      orientation = 0;
+      width = 0.005;
+      height = 0.005;
+      const rawPoints = (pad.points || '').trim().split(/\s+/).filter(Boolean);
+      const segments: string[] = [];
+      for (let k = 0; k + 1 < rawPoints.length; k += 2) {
+        const px = convertToKiCadMm(safeParseFloat(rawPoints[k]) - normOriginX) - posX;
+        const py = convertToKiCadMm(safeParseFloat(rawPoints[k + 1]) - normOriginY) - posY;
+        segments.push(`(xy ${px.toFixed(6)} ${py.toFixed(6)})`);
+      }
+      if (segments.length > 0) {
+        polygonClause = ` (primitives (gr_poly (pts ${segments.join(' ')}) (width 0.1)))`;
+      }
+    }
+
+    const drillClause = drillToKi(
+      pad.drill ? convertToKiCadMm(pad.drill / 2) : 0,
+      pad.holeLength ? convertToKiCadMm(pad.holeLength) : undefined,
+      height,
+      width,
+    );
+
+    // Quote each layer token for KiCad v6+ syntax.
+    const layerTokens = layers.split(/\s+/).map((t) => `"${t}"`).join(' ');
+
+    lines.push(
+      `  (pad "${number}" ${padType} ${shape} (at ${posX.toFixed(4)} ${posY.toFixed(4)} ${orientation.toFixed(2)}) (size ${width.toFixed(4)} ${height.toFixed(4)})${drillClause} (layers ${layerTokens})${polygonClause})`,
+    );
   });
 
   // Add custom texts
@@ -514,6 +642,34 @@ export function convertToKiCadFootprint(footprint: ParsedFootprint, originX?: nu
     lines.push(`  (fp_text user "${text.text}" (at ${x.toFixed(4)} ${y.toFixed(4)}) (layer "${layer}")`);
     lines.push(`    (effects (font (size ${size.toFixed(4)} ${size.toFixed(4)}) (thickness ${(size * 0.15).toFixed(4)})))`);
     lines.push('  )');
+  });
+
+  // Solid regions: layer 99 → F.CrtYd outline (fp_line pairs, width 0.05);
+  // other importable layers (3/4/13/14) → filled fp_poly.
+  // Mirrors easyeda2kicad.py export logic.
+  footprint.solidRegions.forEach((region) => {
+    const layerId = parseInt(region.layer, 10);
+    if (!SOLID_REGION_LAYERS.has(layerId)) return;
+    if (region.fillType !== 'solid' && region.fillType !== 'npth') return;
+
+    const pts = parseSolidRegionPath(region.path, normOriginX, normOriginY);
+    if (pts.length < 3) return;
+
+    if (layerId === 99) {
+      for (let k = 0; k < pts.length - 1; k++) {
+        const [sx, sy] = pts[k];
+        const [ex, ey] = pts[k + 1];
+        lines.push(
+          `  (fp_line (start ${sx.toFixed(4)} ${sy.toFixed(4)}) (end ${ex.toFixed(4)} ${ey.toFixed(4)}) (layer "F.CrtYd") (width 0.05))`,
+        );
+      }
+    } else {
+      const layerName = KI_LAYERS[layerId] ?? 'F.SilkS';
+      const ptsStr = pts.map(([x, y]) => `(xy ${x.toFixed(6)} ${y.toFixed(6)})`).join(' ');
+      lines.push(
+        `  (fp_poly (pts ${ptsStr}) (stroke (width 0) (type solid)) (fill solid) (layer "${layerName}"))`,
+      );
+    }
   });
 
   lines.push(')');
