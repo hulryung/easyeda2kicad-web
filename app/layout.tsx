@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { version as appVersion } from "../package.json";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -135,6 +136,8 @@ export default function RootLayout({
                 >
                   hulryung
                 </a>
+                <span className="text-gray-500">·</span>
+                <span className="text-gray-500 font-mono text-xs">v{appVersion}</span>
               </div>
 
               <div className="flex items-center gap-6 text-sm">
